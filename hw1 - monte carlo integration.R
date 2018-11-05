@@ -25,3 +25,29 @@ FUN = function(x){x^2 * cos(x)}
 integ = mc.integral(FUN, interval = c(0, pi/2))
 print(integ)
 
+g <- function(x) exp(-x^2 / 2) / sqrt(2 * pi)
+a = 2
+b = 5
+c = min(g(a:b))
+
+##-----------------------------##
+n = 1e6
+x <- runif(n)
+
+## integrate (0 to 1) (1 - x^2)^(3/2) dx
+f <- function(x) (1 - x^2)^(3/2)
+I <- sum(f(x)) / n
+
+integrate(f, 0, 1) # check answer
+
+## integrate (0 to inf) x / (1 + x^2) dx
+f<- function(x) x / (1 + x^2)
+integrate(f, 0, Inf)
+
+## integrate (-inf to inf) e^(x^2) dx
+
+f<- function(x) exp(x^2)
+integrate(f, lower = -Inf, upper = Inf)
+
+## integrate (0 to inf) (0 to pi) e^(-(2x + y)) dydx
+
