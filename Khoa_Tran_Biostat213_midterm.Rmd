@@ -12,22 +12,23 @@ Assume that your restaurant opens at 8am and closes at 5pm.  Customers arrive at
 
 ## SIMULATE 3 QUEUING SYSTEMS:  
 
-* Service completion time of server 1 is generated from `rgamma(1, 1, 10)`  
-* Service completion time of server 2 is generated from `rgamma(1, 1, 11)`  
-* Service completion time of server 3 is generated from `rgamma(1, 1, 12)`
+* Service completion time of server 1 is generated from `rgamma(1, 1, 10)`.  
+* Service completion time of server 2 is generated from `rgamma(1, 1, 11)`. 
+* Service completion time of server 3 is generated from `rgamma(1, 1, 12)`.
 * Each system was simulated over 100 days.
 
 ### RESULTS:  
-The wait time is shortest for system with 1 line at about 5.67 minutes. The wait time is longest for system with 3 tandem tellers at about 6.36 minutes. The wait time for system with 3 independent wait lines is in between, at about 5.99 minutes.
-* The average wait time for 1 line 3 tellers is 0.0945 hour.  
-* The average wait time for 3 tandem tellers is 0.1060 hour.
-* The average wait time for 3 tellers each with their independent line is 0.0999 hour.  
+The wait time is shortest for system with 1 line at about 5.67 minutes. The wait time is longest for system with 3 tandem tellers at about 6.36 minutes. The wait time for system with 3 independent wait lines is in between, at about 5.99 minutes.  
+
+* The average wait time for 1 line 3 tellers is 0.0945 (~5.67 mins) hour.  
+* The average wait time for 3 tandem tellers is 0.1060 (~5.99 mins) hour.
+* The average wait time for 3 tellers each with their independent line is 0.0999 (~6.36 mins) hour.  
 
 ### CODE
 
-### Functions used in the 3 simulations  
+#### Functions used in the 3 simulations  
 
-#### Function to change lambda based on the time of the day
+#### Function to change lambda based on time of the day
 
 ```{r}
 lambda.t <- function(time){		# the banks open from 8am to 5pm, so we set 	
@@ -151,7 +152,7 @@ for(day in 1:N){
       c1 <- c1 + 1
       Nd <- Nd + 1
       D[i1] <- t
-      #if there are 3 customers, one leaves server 1 -> server 1 becomes idle
+      #if there less than or = 3 customers, one leaves server 1 -> server 1 becomes idle
       if (n <= 3) {
         n <- n - 1
         i1 <- 0
@@ -203,7 +204,7 @@ for(day in 1:N){
     if (min(Ta, t1, t2, t3) >= T) break
   }
   
-  #When time > 9, store closes but there is still customers
+  #When time > 9, store closes but there are still customers
   if (min(Ta, t1, t2, t3) > T & n > 0) {
     while (n > 0) {
       #someone leaves server 1 before server 2 and 3
@@ -281,18 +282,16 @@ for (day in 1:N) {
   T <- 9                
   Na <- 0 
   Nd <- 0 
-  n1 <- 0
-  n2 <- 0
-  n3 <- 0
-  t1 <- 9999 #service completion time at server 1
-  t2 <- 9999 #service completion time at server 2
-  t3 <- 9999 #service completion time at server 3
-
-  ANa.1 <- numeric()    # the arrival time at server 2
-  ANa.2 <- numeric()    # the arrival time at server 2
-  ANa.3 <- numeric()    # the arrival time at server 3
-
-  DNd <- numeric()  # the departure time
+  n1 <- 0               #number of customer in line for teller 1 at time t
+  n2 <- 0               #number of customer in line for teller 2 at time t
+  n3 <- 0               #number of customer in line for teller 3 at time t
+  t1 <- 9999            #service completion time at teller 1
+  t2 <- 9999            #service completion time at teller 2
+  t3 <- 9999            #service completion time at teller 3
+  ANa.1 <- numeric()    #arrival time at server 2
+  ANa.2 <- numeric()    #arrival time at server 2
+  ANa.3 <- numeric()    #arrival time at server 3
+  DNd <- numeric()      #departure time
   
   #generate the first arrival time
   Ta <- t - (1/lambda.t(t)$lamt)*log(runif(1))  
