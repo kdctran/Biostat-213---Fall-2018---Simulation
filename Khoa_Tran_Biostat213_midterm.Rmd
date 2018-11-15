@@ -17,13 +17,13 @@ Assume that your restaurant opens at 8am and closes at 5pm.  Customers arrive at
 * Service completion time of server 3 is generated from `rgamma(1, 1, 12)`
 * Each system was simulated over 100 days.
 
-### SUMMARY:
+### RESULTS:  
+The wait time is shortest for system with 1 line at about 5.67 minutes. The wait time is longest for system with 3 tandem tellers at about 6.36 minutes. The wait time for system with 3 independent wait lines is in between, at about 5.99 minutes.
+* The average wait time for 1 line 3 tellers is 0.0945 hour.  
+* The average wait time for 3 tandem tellers is 0.1060 hour.
+* The average wait time for 3 tellers each with their independent line is 0.0999 hour.  
 
-* The average wait time for 1 line 3 servers is 0.0945 hour.  
-* The average wait time for 3 tandem servers is 0.1060 hour.
-* The average wait time for 3 servers each with their independent line is 0.1060 hour.
-
-## CODE
+### CODE
 
 ### Functions used in the 3 simulations  
 
@@ -358,8 +358,286 @@ mean(cust.wait2)
 ```
 
 ### 3) Each teller has their own line (grocery store)  
-
+* For this project, each line is treated as independent from each other.
+* New lambda function, the rate of arrival is divided by 3 as one teller does not service all the customers
 
 ```{r}
+lambda.t <- function (time) {		# the banks open from 8am to 5pm, so we set 	
+  if (time >= 4 && time <= 5) {	# the time from 0 to 9 and the rate is 4/hr 
+    lambda <- 6	/3	# but increase to 6 between 4 and 5.
+  } else {lambda <- 4 / 3}
+  list(lamt = lambda)
+}
+```
 
+```{r}
+set.seed(213)
+N<-100
+
+## QUEUE FOR TELLER 1
+
+cust.wait1 <- numeric(N)
+Tp1 <- numeric(N)
+depart1 <-numeric(N)
+Timepast1 <-numeric(N)
+i<-0
+
+for (i in 1:100) {		#starting the loop and initializing
+  t<-0				#time starts at 0
+  T<-9				#time is 8 hours
+  A <- 0      #arrival time
+  D <- 0      #departure time
+  Na <-0      #number of arrivals
+  Nd <-0      #number of departures
+  n  <-0      #number of customer at time t
+  Td <- 9999
+  
+  #generate arrival times
+  Ta <- t - (1/lambda.t(t)$lamt)*log(runif(1))
+
+  while(t<T)
+  {
+    #Case 1: somebody arrives before somebody departs and store is open
+    if (Ta <= Td & Ta <= T)
+    {
+      t <- Ta				#updating time variable
+      Na <- Na + 1			#add additional arrival at time ta
+      n <- n + 1			#add additional customer
+      A[Na] <- t			#output data (customer Na arrived at time t)
+      Ta <- generate.Tt(Ta, t)
+
+      if (n==1)		#if n=1 we need to generate Y and reset
+      {		    #td=t+Y because system was empty and td=infty
+        Y <- rgamma(1,1,10)
+        Td <- t + Y
+      }
+    }
+    
+    #CASE 2: somebody departs before somebody arrives
+    if (Td < Ta & Td <=T)
+    {
+      t <- Td
+      n <- n-1
+      Nd <- Nd + 1
+      D[Nd] <-t
+      if (n == 0) 
+      {Td <- 9999 
+      }
+      if (n > 0)  #there is customer in queue
+      {	
+        Y <-  rgamma(1,1,10)
+        Td <- t + Y
+      }
+    }
+    
+    #Case 3: store is closed but there is still customer
+    if (min(Ta,Td) > T & n > 0)
+    {
+      while (n >0)
+      {
+        t <- Td
+        n<- n-1
+        Nd<- Nd + 1
+        D[Nd] <-  t
+        if (n >0)
+        {
+          Y <- rgamma(1,1,10)
+          Td <-t + Y
+        }
+      }
+    }
+    
+    #Case 4: close and no more customer
+    if (min(Ta,Td) > T & n==0)
+    {
+      Tp<-max(t-T,0)
+      Timepast1[i] <-Tp
+    }
+    if(min(Ta, Td) >= T) break
+  }
+  
+  cust.wait1[i] <- sum(D-A)/Na
+  depart1[i] <-t
+  i <- i+1
+}
+mean(cust.wait1) #average wait time for teller 1
+
+## QUEUE FOR TELLER 2
+
+cust.wait2 <- numeric(N)
+Tp2 <- numeric(N)
+depart2 <-numeric(N)
+Timepast2 <-numeric(N)
+i<-0
+
+for (i in 1:100) {		#starting the loop and initializing
+  t<-0				#time starts at 0
+  T<-9				#time is 8 hours
+  A <- 0      #arrival time
+  D <- 0      #departure time
+  Na <-0      #number of arrivals
+  Nd <-0      #number of departures
+  n  <-0      #number of customer at time t
+  Td <- 9999
+  
+  #generate arrival times
+  Ta <- t - (1/lambda.t(t)$lamt)*log(runif(1))
+  
+  while(t<T)
+  {
+    #Case 1: somebody arrives before somebody departs and store is open
+    if (Ta <= Td & Ta <= T)
+    {
+      t <- Ta				#updating time variable
+      Na <- Na + 1			#add additional arrival at time ta
+      n <- n + 1			#add additional customer
+      A[Na] <- t			#output data (customer Na arrived at time t)
+      Ta <- generate.Tt(Ta, t)
+      
+      if (n==1)		#if n=1 we need to generate Y and reset
+      {		    #td=t+Y because system was empty and td=infty
+        Y <- rgamma(1,1,11)
+        Td <- t + Y
+      }
+    }
+    
+    #CASE 2: somebody departs before somebody arrives
+    if (Td < Ta & Td <=T)
+    {
+      t <- Td
+      n <- n-1
+      Nd <- Nd + 1
+      D[Nd] <-t
+      if (n == 0) 
+      {Td <- 9999 
+      }
+      if (n > 0)  #there is customer in queue
+      {	
+        Y <-  rgamma(1,1,11)
+        Td <- t + Y
+      }
+    }
+    
+    #Case 3: store is closed but there is still customer
+    if (min(Ta,Td) > T & n > 0)
+    {
+      while (n >0)
+      {
+        t <- Td
+        n<- n-1
+        Nd<- Nd + 1
+        D[Nd] <-  t
+        if (n >0)
+        {
+          Y <- rgamma(1,1,11)
+          Td <-t + Y
+        }
+      }
+    }
+    
+    #Case 4: close and no more customer
+    if (min(Ta,Td) > T & n==0)
+    {
+      Tp<-max(t-T,0)
+      Timepast2[i] <-Tp
+    }
+    if(min(Ta, Td) >= T) break
+  }
+  
+  cust.wait2[i] <- sum(D-A)/Na
+  depart2[i] <-t
+  i <- i+1
+}
+mean(cust.wait2) #average wait time for teller 2
+
+## QUEUE FOR TELLER 3
+
+cust.wait3 <- numeric(N)
+Tp3 <- numeric(N)
+depart3 <-numeric(N)
+Timepast3 <-numeric(N)
+i<-0
+
+for (i in 1:100) {		#starting the loop and initializing
+  t<-0				#time starts at 0
+  T<-9				#time is 8 hours
+  A <- 0      #arrival time
+  D <- 0      #departure time
+  Na <-0      #number of arrivals
+  Nd <-0      #number of departures
+  n  <-0      #number of customer at time t
+  Td <- 9999
+  
+  #generate arrival times
+  Ta <- t - (1/lambda.t(t)$lamt)*log(runif(1))
+  
+  while(t<T)
+  {
+    #Case 1: somebody arrives before somebody departs and store is open
+    if (Ta <= Td & Ta <= T)
+    {
+      t <- Ta				#updating time variable
+      Na <- Na + 1			#add additional arrival at time ta
+      n <- n + 1			#add additional customer
+      A[Na] <- t			#output data (customer Na arrived at time t)
+      Ta <- generate.Tt(Ta, t)
+      
+      if (n==1)		#if n=1 we need to generate Y and reset
+      {		    #td=t+Y because system was empty and td=infty
+        Y <- rgamma(1,1,12)
+        Td <- t + Y
+      }
+    }
+    
+    #CASE 2: somebody departs before somebody arrives
+    if (Td < Ta & Td <=T)
+    {
+      t <- Td
+      n <- n-1
+      Nd <- Nd + 1
+      D[Nd] <-t
+      if (n == 0) 
+      {Td <- 9999 
+      }
+      if (n > 0)  #there is customer in queue
+      {	
+        Y <-  rgamma(1,1,12)
+        Td <- t + Y
+      }
+    }
+    
+    #Case 3: store is closed but there is still customer
+    if (min(Ta,Td) > T & n > 0)
+    {
+      while (n >0)
+      {
+        t <- Td
+        n<- n-1
+        Nd<- Nd + 1
+        D[Nd] <-  t
+        if (n >0)
+        {
+          Y <- rgamma(1,1,12)
+          Td <-t + Y
+        }
+      }
+    }
+    
+    #Case 4: close and no more customer
+    if (min(Ta,Td) > T & n==0)
+    {
+      Tp<-max(t-T,0)
+      Timepast3[i] <-Tp
+    }
+    if(min(Ta, Td) >= T) break
+  }
+  
+  cust.wait3[i] <- sum(D-A)/Na
+  depart3[i] <-t
+  i <- i+1
+}
+mean(cust.wait3)  #average wait time for teller 3
+
+## Taking average of the three average wait times
+mean(c(cust.wait1, cust.wait2, cust.wait3))
 ```
