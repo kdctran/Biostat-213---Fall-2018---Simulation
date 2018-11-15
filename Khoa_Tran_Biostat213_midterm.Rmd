@@ -1,0 +1,365 @@
+---
+title: "Biostats 213 Midterm Project"
+author: Khoa Tran 505029406
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Assume that your restaurant opens at 8am and closes at 5pm.  Customers arrive at a rate of 4/hr.  Between the hours of noon and 1 that rate increases to 6/hr.  Suppose you have 3 tellers. We have studied 3 types of queuing systems 1) 1 line with parallel servers.  2)  tandem service (In-N-out example) and 3) where each teller has their own line (grocery store).  Given three tellers which queuing system has the shortest expected waiting time for the customers?
+
+## SIMULATE 3 QUEUING SYSTEMS:  
+
+* Service completion time of server 1 is generated from `rgamma(1, 1, 10)`  
+* Service completion time of server 2 is generated from `rgamma(1, 1, 11)`  
+* Service completion time of server 3 is generated from `rgamma(1, 1, 12)`
+* Each system was simulated over 100 days.
+
+### SUMMARY:
+
+* The average wait time for 1 line 3 servers is 0.0945 hour.  
+* The average wait time for 3 tandem servers is 0.1060 hour.
+* The average wait time for 3 servers each with their independent line is 0.1060 hour.
+
+## CODE
+
+### Functions used in the 3 simulations  
+
+#### Function to change lambda based on the time of the day
+
+```{r}
+lambda.t <- function(time){		# the banks open from 8am to 5pm, so we set 	
+  if(time >= 4 && time <= 5){	# the time from 0 to 9 and the rate is 4/hr 
+    lambda <- 6		# but increase to 6 between 4 and 5.
+  } else { lambda <- 4 }
+  list(lamt=lambda)
+}
+```
+
+#### Function to generate arrival time based on previous arrival time and time t
+
+```{r}
+generate.Tt <- function(Ta, t) {
+  Tt <- t- (1/lambda.t(t)$lamt)*log(runif(1))	# next arrival time
+  
+  if (Ta < 4) {		# Ta is less than 4
+    Ta <- Tt
+    if (Ta > 4) { Ta <- 4+((Ta-4)*4/6) }	#if greater than 4, change rate	
+  } else if ( 4 <= Ta && Ta <= 5 ) {	# 4 <= Ta <= 5
+    Ta <- Tt
+    if (Ta > 5) { Ta <- 5+((Ta-5)*6/4) }	#if greater than 5 , change rate
+  } else { 
+    Ta <- Tt
+  }
+  
+  if ( Ta > 9)  Ta <- 9999	# To insure that nobody can enter the system after 
+  return(Ta)
+}		
+```
+
+### 1) One line with three parallel servers
+
+```{r}
+set.seed(213)     #seed = 213
+N <- 100
+cust.wait <- numeric(N)
+day <- 1
+for(day in 1:N){
+  t <- 0          #time starts at 0
+  T <- 9          #store closed 9 hrs later
+  A <- numeric()  #vector of arrival time of customer
+  D <- numeric()  #vector departure time of customer
+  Na <- 0         #number of arrival by time t
+  Nd <- 0         #number of departure by time t 
+  n <- 0          #number of customer in the store
+  i1 <- 0         #index of the customer at server 1
+  i2 <- 0         #index of the customer at server 2
+  i3 <- 0         #index of the customer at server 3
+  t1 <- 9999      #service completion time of server 1
+  t2 <- 9999      #service completion time of server 2
+  t3 <- 9999      #service completion time of server 3
+  c1 <- 0         #number of customer served by server 1
+  c2 <- 0         #number of customer served by server 2
+  c3 <- 0         #number of customer served by server 3
+  
+  #Generate the first arrival time
+  Ta <- t - (1/lambda.t(t)$lamt) * log(runif(1))
+  
+  #While the store is open
+  while (t < T) {
+    #Case 1: someone arrives before someone departs or the servers are all idle
+    if (Ta == min(Ta, t1, t2, t3)) {
+      t <- Ta
+      Na <- Na + 1
+      A[Na] <- t 
+      Ta <- generate.Tt(Ta, t) #generate the next arrival time
+      
+      #if the store is empty
+      #server 1 has priority, then server 2, then server 3
+      if (n == 0 & t1 == 9999 & t2 == 9999 & t3 == 9999) {
+        n <- 1
+        i1 <- Na #server 1 has priority, then server 2, then server 3
+        Y1 <- rgamma(1, 1, 10) #service period
+        t1 <- t + Y1
+      } else if (n == 1 & t1 != 9999 & t2 == 9999 & t3 == 9999) {
+        #server 1 is busy, server 2 and 3 are idle
+        n <- 2
+        i2 <- Na  #server 2 has priority over server 3
+        Y2 <- rgamma(1, 1, 11)
+        t2 <- t + Y2
+      } else if (n == 1 & t1 == 9999 & t2 != 9999 & t3 == 9999) {
+        #server 2 is busy, server 1 and 3 are idle
+        n <- 2
+        i1 <- Na #go to server 1
+        Y1 <- rgamma(1, 1, 10)
+        t1 <- t + Y1
+      } else if (n == 1 & t1 == 9999 & t2 == 9999 & t3 != 9999) {
+        #server 3 is busy, server 1 and 2 are idle
+        n <- 2
+        i1 <- Na #go to server 1
+        Y1 <- rgamma(1, 1, 10)
+        t1 <- t + Y1
+      }else if(n == 2 & t1 != 9999 & t2 != 9999 & t3 == 9999){
+        #server 1 and 2 are busy, server 3 is idle
+        n <- 3
+        i3 <- Na #go to server 3
+        Y3 <- rgamma(1, 1, 12)
+        t3 <- t + Y3
+      } else if (n == 2 & t1 != 9999 & t2 == 9999 & t3 != 9999) {
+        #server 1 and 3 are busy, server 2 is idle
+        n <- 3
+        i2 <- Na #go to server 2
+        Y2 <- rgamma(1, 1, 11)
+        t2 <- t + Y2
+      } else if (n == 2 & t1 == 9999 & t2 != 9999 & t3 != 9999) {
+        #server 2 and 3 are busy, server 1 is idle
+        n <- 3
+        i1 <- Na #go to server 1
+        Y1 <- rgamma(1, 1, 10)
+        t1 <- t + Y1
+        
+        #else increase the line
+      } else if (n > 2) {
+        n <- n + 1
+      }
+    
+    #Case 2: someone leaves server 1 before someone arrives
+    } else if (t1 == min(Ta, t1, t2, t3)) {
+      t <- t1
+      c1 <- c1 + 1
+      Nd <- Nd + 1
+      D[i1] <- t
+      #if there are 3 customers, one leaves server 1 -> server 1 becomes idle
+      if (n <= 3) {
+        n <- n - 1
+        i1 <- 0
+        t1 <- 9999
+      } else if (n > 3) {  #if more than 3 customers, server 1 serves next in line
+        n <- n - 1
+        m <- max(i1, i2, i3)
+        i1 <- m + 1
+        Y1 <- rgamma(1, 1, 10)
+        t1 <- t + Y1
+      }
+      
+    #Case 3: someone leaves server 2 before someone arrives 
+    } else if (t2 == min(Ta, t1, t2, t3)) {
+      t <- t2
+      c2 <- c2 + 1
+      Nd <- Nd + 1
+      D[i2] <- t
+      if (n <= 3) {
+        n <- n - 1
+        i2 <- 0
+        t2 <- 9999
+      } else if (n > 3) {
+        n <- n - 1
+        m <- max(i1, i2, i3)
+        i2 <- m + 1
+        Y2 <- rgamma(1, 1, 11)
+        t2 <- t + Y2
+      }
+      
+    #Case 4: someone leaves server 3 before someone arrives
+    } else if (t3 == min(Ta, t1, t2, t3)) {
+      t <- t3
+      c3 <- c3 + 1
+      Nd <- Nd + 1
+      D[i3] <- t
+      if (n <= 3) {
+        n <- n - 1
+        i3 <- 0
+        t3 <- 9999
+      } else if (n > 3) {
+        n <- n - 1
+        m <- max(i1, i2, i3)
+        i3 <- m + 1
+        Y3 <- rgamma(1, 1, 12)
+        t3 <- t + Y3
+      }
+    }
+    if (min(Ta, t1, t2, t3) >= T) break
+  }
+  
+  #When time > 9, store closes but there is still customers
+  if (min(Ta, t1, t2, t3) > T & n > 0) {
+    while (n > 0) {
+      #someone leaves server 1 before server 2 and 3
+      if (t1 == min(t1, t2, t3)) {
+        t <- t1
+        Nd <- Nd + 1
+        c1 <- c1 + 1
+        D[i1] <- t
+        if (n <= 3) {
+          n <- n - 1
+          i1 <- 0
+          t1 <- 9999
+        } else if(n > 3) {
+          n <- n - 1
+          m <- max(i1, i2, i3)
+          i1 <- m + 1
+          Y1 <- rgamma(1, 1, 10)
+          t1 <- t + Y1
+        }
+        
+      #someone leaves server 2 before server 1 and 3 
+      } else if (t2 == min(t1, t2, t3)) {
+        t <- t2
+        Nd <- Nd + 1
+        c2 <- c2 + 1
+        D[i2] <- t
+        if (n <= 3) {
+          n <- n - 1
+          i2 <- 0
+          t2 <- 9999
+        } else if (n > 3) {
+          n <- n - 1
+          m <- max(i1, i2, i3)
+          i2 <- m + 1
+          Y2 <- rgamma(1, 1, 11)
+          t2 <- t + Y2
+        }
+        
+      #someone leaves server 3 before server 1 and 2
+      } else if (t3 == min(t1, t2, t3)) {
+        t <- t3
+        Nd <- Nd + 1
+        c3 <- c3 + 1
+        D[i3] <- t
+        if (n <= 3) {
+          n <- n - 1
+          i3 <- 0
+          t3 <- 9999
+        } else if (n > 3) {
+          n <- n - 1
+          m <- max(i1, i2, i3)
+          i3 <- m + 1
+          Y3 <- rgamma(1, 1, 12)
+          t3 <- t + Y3
+        }
+      }
+    }
+  }
+  #collect average wait time
+  cust.wait[day] <- mean(D - A)
+  day <- day + 1
+}
+
+mean(cust.wait)
+```
+
+### 2) Tandem service (one line with three check out points)
+
+```{r}
+set.seed(213)
+N <- 100
+cust.wait2 <- numeric(N)
+for (day in 1:N) {
+  t <- 0                
+  T <- 9                
+  Na <- 0 
+  Nd <- 0 
+  n1 <- 0
+  n2 <- 0
+  n3 <- 0
+  t1 <- 9999 #service completion time at server 1
+  t2 <- 9999 #service completion time at server 2
+  t3 <- 9999 #service completion time at server 3
+
+  ANa.1 <- numeric()    # the arrival time at server 2
+  ANa.2 <- numeric()    # the arrival time at server 2
+  ANa.3 <- numeric()    # the arrival time at server 3
+
+  DNd <- numeric()  # the departure time
+  
+  #generate the first arrival time
+  Ta <- t - (1/lambda.t(t)$lamt)*log(runif(1))  
+  
+  repeat{
+    if(Ta==9999 && Ta==t1 && t1==t2 && t2==t3) break
+    ### CASE 1: someone arrives at server 1
+    if (Ta == min(Ta,t1,t2,t3)) {
+      t <- Ta
+      Na <- Na + 1
+      n1 <- n1 + 1
+      Ta <- generate.Tt(Ta, t) # NOtice: the change of rate
+      if (n1 == 1) {
+        t1 <- t + rgamma(1, 1, 10) / 3    
+      }
+      ANa.1[Na] <- t
+      
+      
+    ### CASE 2: someone leaves server 1
+    } else if (t1 == min(Ta,t1,t2,t3)) { 
+      t <- t1 
+      n1 <- n1 - 1  
+      n2 <- n2 + 1 
+      if (n1 == 0) {
+        t1 <- 9999
+      } else {
+        t1 <- t + rgamma(1, 1, 10) / 3
+      }
+      if (n2 == 1) {t2 <- t + rgamma(1, 1, 11) / 3}
+      ANa.2[(Na-n1)] <- t
+      
+    ### CASE 3: someone leaves server 2
+    } else if ( t2 == min(Ta,t1,t2,t3)) {  
+      t <- t2
+      n2 <- n2 - 1
+      n3 <- n3 + 1
+      if (n2 == 0) {
+        t2 <- 9999
+      } else {
+        t2 <- t +rgamma(1, 1, 11) / 3 
+      }
+      if (n3 == 1){ t3 <- t + rgamma(1, 1, 12) / 3 }
+      ANa.3[(Na-n1-n2)] <- t
+      
+      ### CASE 4: someone leaves server 3
+    } else if ( t3 == min(Ta,t1,t2,t3)) {  
+      t <- t3
+      n3 <- n3 - 1
+      Nd <- Nd + 1
+      if (n3 == 0) {
+        t3 <- 9999
+      } else {
+        t3 <- t + rgamma(1, 1, 12) / 3
+      }
+      DNd[(Nd)] <- t
+    }
+  }
+  cust.wait2[day] <- mean(DNd-ANa.1)
+  day <- day + 1
+}
+
+mean(cust.wait2)
+```
+
+### 3) Each teller has their own line (grocery store)  
+
+
+```{r}
+
+```
