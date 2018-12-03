@@ -1,0 +1,134 @@
+---
+title: "Biostats 213 Final"
+author: Khoa Tran
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+if (!"adaptMCMC" %in% rownames(installed.packages()))  
+    install.packages("adaptMCMC", repos = "http://cran.rstudio.com/")
+if (!"coda" %in% rownames(installed.packages()))  
+    install.packages("coda", repos = "http://cran.rstudio.com/")
+
+library(adaptMCMC)
+library(coda)
+```
+
+The two dimensional Banana distribution (Haario, 1999) is defined as:  
+
+$$
+\pi (x_1, x_2) \propto e^{\frac{-x_1^2}{2}} e^{\frac{-(x_2 - 2(x_1^2 - 5))^2}{2}}
+$$
+
+#### Describe how to simulate directly from $\pi (x_1, x_2)$ 
+
+* Use Metropolis algorithm to sample from the log density $\frac{-x_1^2}{2} - \frac{(x_2 - 2(x_1^2 - 5))^2}{2}$  
+* Function `MCMC` from package `adaptMCMC`
+
+#### Sample from log pdf $\frac{-x_1^2}{2} - \frac{(x_2 - 2(x_1^2 - 5))^2}{2}$
+
+```{r}
+## log-pdf to sample from
+log.pdf <- function(x) {
+  -x[1]^2/2 - 1/2*(x[2]-2*x[1]^2+10)^2
+}
+
+## generate sample
+set.seed(213)
+sample1 <- MCMC(log.pdf, n = 10000, init = c(0, 0), scale = c(1, 0.5),
+               adapt=FALSE)
+```
+
+* Image of $e^{\frac{-x_1^2}{2}} e^{\frac{-(x_2 - 2(x_1^2 - 5))^2}{2}}$
+
+```{r}
+x1 <- seq(-15, 15, length = 100)
+x2 <- seq(-15, 15, length = 100)
+banana.dist <- matrix(apply(expand.grid(x1, x2), 1, log.pdf), nrow = 100)
+
+image(x1, x2, exp(banana.dist), col = cm.colors(60), xlim = c(-10, 10))
+```
+
+* Sample result:
+
+```{r}
+image(x1, x2, exp(banana.dist), col = cm.colors(60), xlim = c(-10, 10))
+points(sample1$samples, pch=1)
+```
+
+* More graphs:
+
+```{r}
+tab1 <- sample1$samples
+par(mfrow=c(3,2))
+plot(tab1,col=1:10000, xlim = c(-10, 10), ylim = c(-15, 15))
+plot(tab1,type="l")
+plot(ts(tab1[,1]))
+plot(ts(tab1[,2]))
+hist(tab1[,1],40)
+hist(tab1[,2],40)
+par(mfrow=c(1,1))
+```
+
+#### Diagnostic
+
+```{r}
+## More samples with different variance
+
+## jumpsize w = 1
+sample2 <- MCMC(log.pdf, n = 10000, init = c(0, 0), scale = c(1, 1),
+               adapt=FALSE)
+tab2 <- sample2$samples
+
+
+## jumpsize w = 2
+sample3 <- MCMC(log.pdf, n = 10000, init = c(0, 0), scale = c(1, 2),
+               adapt=FALSE)
+tab3 <- sample3$samples
+
+## create mcmc objects for coda diagnostics
+sample1.mcmc <- as.mcmc(sample1$samples)
+sample2.mcmc <- as.mcmc(sample2$samples)
+sample3.mcmc <- as.mcmc(sample3$samples)
+
+
+plot(ts(sample1$samples))
+plot(ts(sample2$samples))
+plot(ts(sample3$samples))
+
+```
+
+* Geweke test (if Geweke z-score is > 2, not at stationary distribution yet):
+
+```{r}
+
+
+## geweke z-score
+geweke1 <- geweke.diag(sample1.mcmc , frac1 = 0.5, frac2 = 0.2)
+geweke2 <- geweke.diag(sample2.mcmc , frac1 = 0.5, frac2 = 0.2)
+geweke3 <- geweke.diag(sample3.mcmc , frac1 = 0.5, frac2 = 0.2)
+
+geweke1
+geweke2
+geweke3
+```
+
+
+
+* Raftery-Lewis test:
+
+```{r}
+raftery.diag(sample1.mcmc, q = 0.025, r = 0.005, s = 0.95, converge.eps = 0.001)
+raftery.diag(sample2.mcmc, q = 0.025, r = 0.005, s = 0.95, converge.eps = 0.001)
+raftery.diag(sample3.mcmc, q = 0.025, r = 0.005, s = 0.95, converge.eps = 0.001)
+```
+
+* Heidelberg & Welch test:
+
+```{r}
+heidel.diag(sample1.mcmc, eps = 0.1, pvalue = 0.05)
+heidel.diag(sample2.mcmc, eps = 0.1, pvalue = 0.05)
+heidel.diag(sample3.mcmc, eps = 0.1, pvalue = 0.05)
+```
